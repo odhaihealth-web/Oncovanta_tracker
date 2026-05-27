@@ -304,7 +304,7 @@ create policy "Authenticated users can insert" on tracker_state for insert with 
 
 const SUPABASE_URL = 'https://qlujoyptbcnebgupgebh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsdWpveXB0YmNuZWJndXBnZWJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDEwMDAsImV4cCI6MjA5NTQ3NzAwMH0.94hxk_cHhn3yYKATYVUYp8rG_5mF2Yus6JMVTkCNhlE';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
 const STTR_DEADLINE = new Date('2026-09-05T23:59:59');
