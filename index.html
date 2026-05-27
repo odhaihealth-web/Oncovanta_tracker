@@ -216,7 +216,7 @@
     </button>
     <div id="setupCardBody" class="hidden border-t p-5 space-y-4" style="border-color: var(--border);">
       <div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--accent-soft); color: var(--accent);">1</span><div><p class="text-sm font-semibold">Create a Supabase Project</p><p class="text-xs mt-0.5" style="color: var(--muted);">Go to supabase.com → New Project.</p></div></div>
-      <div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--accent-soft); color: var(--accent);">2</span><div><p class="text-sm font-semibold">Copy URL and Anon Key</p><p class="text-xs mt-0.5" style="color: var(--muted);">Project Settings → API. Replace YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY in the script.</p></div></div>
+      <div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--accent-soft); color: var(--accent);">2</span><div><p class="text-sm font-semibold">Copy URL and Anon Key</p><p class="text-xs mt-0.5" style="color: var(--muted);">Project Settings → API. Replace YOUR_SUPABASE_URL and eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsdWpveXB0YmNuZWJndXBnZWJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDEwMDAsImV4cCI6MjA5NTQ3NzAwMH0.94hxk_cHhn3yYKATYVUYp8rG_5mF2Yus6JMVTkCNhlE in the script.</p></div></div>
       <div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--accent-soft); color: var(--accent);">3</span><div><p class="text-sm font-semibold">Run the SQL Script</p><p class="text-xs mt-0.5" style="color: var(--muted);">Open SQL Editor and run the script in the comments at the top of the &lt;script&gt; block.</p></div></div>
       <div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--accent-soft); color: var(--accent);">4</span><div><p class="text-sm font-semibold">Invite Team Members</p><p class="text-xs mt-0.5" style="color: var(--muted);">Authentication → Users → Invite.</p></div></div>
     </div>
@@ -303,7 +303,7 @@ create policy "Authenticated users can insert" on tracker_state for insert with 
 
 
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsdWpveXB0YmNuZWJndXBnZWJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDEwMDAsImV4cCI6MjA5NTQ3NzAwMH0.94hxk_cHhn3yYKATYVUYp8rG_5mF2Yus6JMVTkCNhlE';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
