@@ -1,0 +1,781 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oncovanta Therapeutics — Team Tracker (STTR & POC)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1426;
+    --card: #111D2E;
+    --border: #1A2A40;
+    --accent: #00C9B1;
+    --accent-soft: rgba(0,201,177,0.12);
+    --text: #E8ECF1;
+    --muted: #8B9DB3;
+    --danger: #E74C3C;
+    --warning: #F39C12;
+    --success: #2ECC71;
+  }
+  * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  body { background: var(--bg); color: var(--text); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .accent-text { color: var(--accent); }
+  .accent-bg { background: var(--accent); }
+  .accent-border { border-color: var(--accent); }
+  .tab-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .checkbox-ov { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
+  .phase-header { cursor: pointer; transition: background 0.2s; }
+  .phase-header:hover { background: rgba(255,255,255,0.03); }
+  .progress-bar { background: var(--border); border-radius: 999px; overflow: hidden; }
+  .progress-fill { background: var(--accent); transition: width 0.5s ease; }
+  .badge { font-size: 0.75rem; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+  .badge-success { background: rgba(46,204,113,0.15); color: var(--success); }
+  .badge-warning { background: rgba(243,156,18,0.15); color: var(--warning); }
+  .badge-danger { background: rgba(231,76,60,0.15); color: var(--danger); }
+  .badge-muted { background: rgba(139,157,179,0.15); color: var(--muted); }
+  .stagger-item { opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s ease forwards; }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+  .table-row:hover { background: rgba(255,255,255,0.03); }
+  .donor-pill { transition: all 0.3s ease; }
+  .donor-pill.complete { background: rgba(46,204,113,0.15); color: var(--success); border-color: var(--success); }
+  .donor-pill.inprogress { background: rgba(243,156,18,0.15); color: var(--warning); border-color: var(--warning); }
+  .donor-pill.pending { background: rgba(139,157,179,0.15); color: var(--muted); border-color: var(--border); }
+  .milestone-item { transition: all 0.3s ease; }
+  .milestone-item.complete { color: var(--success); }
+  .milestone-item.inprogress { color: var(--warning); }
+  .milestone-item.pending { color: var(--muted); }
+  .week-card { transition: transform 0.2s, box-shadow 0.2s; }
+  .week-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .countdown-box { background: var(--accent-soft); border: 1px solid rgba(0,201,177,0.25); }
+  .team-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+  @media (max-width: 768px) { .table-wrap { overflow-x: auto; } }
+</style>
+</head>
+<body class="min-h-screen">
+
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="hidden fixed inset-0 z-[90] flex items-center justify-center" style="background: rgba(11,20,38,0.85); backdrop-filter: blur(4px);">
+  <div class="text-center">
+    <div class="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3" style="border-color: var(--accent); border-top-color: transparent;"></div>
+    <p class="text-sm font-medium" style="color: var(--muted);">Loading team data...</p>
+  </div>
+</div>
+
+
+<!-- Header -->
+<header class="border-b" style="border-color: var(--border);">
+  <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <img src="/v1/files/prod-memory-sources/hbs-foundry/69f3627ca37a927074be97bb/data_sources/c15b4aa0/IMG_0305.jpg" alt="Oncovanta Therapeutics Logo" style="height: 48px; width: auto; object-fit: contain; filter: brightness(0) invert(1);">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Oncovanta Therapeutics</h1>
+        <p class="text-sm mt-1" style="color: var(--muted);">STTR Phase I Proposal & POC Research — Team Tracker</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 text-sm" style="color: var(--muted);">
+      <span class="inline-block w-2 h-2 rounded-full" style="background: var(--accent);"></span>
+      <span id="currentDateDisplay">Loading...</span>
+    </div>
+  </div>
+</header>
+
+
+<!-- Team Roster -->
+<section class="max-w-7xl mx-auto px-4 pt-6">
+  <div class="card rounded-xl p-5 mb-6">
+    <h2 class="text-sm font-bold uppercase tracking-wider mb-4" style="color: var(--muted);">Team Roster</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="flex items-center gap-3">
+        <div class="team-avatar" style="background: rgba(0,201,177,0.15); color: var(--accent);">RO</div>
+        <div><p class="text-sm font-semibold">Roman Owens</p><p class="text-xs" style="color: var(--muted);">CEO / Strategic Lead</p></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="team-avatar" style="background: rgba(59,130,246,0.15); color: #60A5FA;">TH</div>
+        <div><p class="text-sm font-semibold">Dr. Tamaro Hudson</p><p class="text-xs" style="color: var(--muted);">Scientific Lead / PI</p></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="team-avatar" style="background: rgba(168,85,247,0.15); color: #C084FC;">CZ</div>
+        <div><p class="text-sm font-semibold">Dr. Caimei Zhang</p><p class="text-xs" style="color: var(--muted);">Experimental Design / POC PI</p></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="team-avatar" style="background: rgba(245,158,11,0.15); color: #FBBF24;">EA</div>
+        <div><p class="text-sm font-semibold">Dr. Emmanuel Akala</p><p class="text-xs" style="color: var(--muted);">Nanomedicine Delivery</p></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="team-avatar" style="background: rgba(239,68,68,0.15); color: #FCA5A5;">JT</div>
+        <div><p class="text-sm font-semibold">Joyce Terry</p><p class="text-xs" style="color: var(--muted);">Compliance / Admin</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Tabs -->
+<nav class="max-w-7xl mx-auto px-4">
+  <div class="flex gap-2">
+    <button id="tab-sttr" class="tab-btn active px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border);" onclick="switchTab('sttr')">STTR Timeline Tracker</button>
+    <button id="tab-poc" class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" onclick="switchTab('poc')">POC Milestone Tracker</button>
+    <button id="tab-my" class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" onclick="switchTab('my')">My Tasks</button>
+  </div>
+</nav>
+
+
+<!-- STTR TAB -->
+<main id="view-sttr" class="max-w-7xl mx-auto px-4 py-6 pb-16">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5 countdown-box rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--accent);">Submission Deadline</p>
+      <p class="text-lg font-bold">September 5, 2026</p>
+      <p class="text-sm mt-1" style="color: var(--muted);"><span id="daysRemaining">—</span> days remaining</p>
+    </div>
+    <div class="card p-5 rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">Overall Progress</p>
+      <div class="flex items-center gap-3 mt-2">
+        <div class="progress-bar flex-1 h-3"><div id="sttrOverallBar" class="progress-fill h-3" style="width: 0%"></div></div>
+        <span id="sttrOverallText" class="text-sm font-bold accent-text">0%</span>
+      </div>
+      <p class="text-xs mt-2" style="color: var(--muted);"><span id="sttrCompletedCount">0</span> of 21 tasks complete</p>
+    </div>
+    <div class="card p-5 rounded-xl flex items-center justify-center">
+      <div style="width: 90px; height: 90px;"><canvas id="sttrDonut"></canvas></div>
+    </div>
+  </div>
+  <div id="phasesContainer" class="space-y-4"></div>
+  <div class="card rounded-xl mt-6 overflow-hidden">
+    <div class="p-5 border-b" style="border-color: var(--border);">
+      <h2 class="font-bold text-lg">Section Responsibility Matrix</h2>
+      <p class="text-xs mt-1" style="color: var(--muted);">21 proposal sections with assigned leads, requirements, and progress</p>
+    </div>
+    <div class="table-wrap">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs uppercase tracking-wider" style="color: var(--muted); background: rgba(255,255,255,0.02);">
+            <th class="px-5 py-3 font-semibold">#</th>
+            <th class="px-5 py-3 font-semibold">Section</th>
+            <th class="px-5 py-3 font-semibold">Requirements</th>
+            <th class="px-5 py-3 font-semibold">Lead</th>
+            <th class="px-5 py-3 font-semibold">Support / Oversight</th>
+            <th class="px-5 py-3 font-semibold">Progress</th>
+          </tr>
+        </thead>
+        <tbody id="sectionTableBody" style="color: var(--text);"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card p-5 rounded-xl mt-6 border-l-4" style="border-left-color: var(--accent);">
+    <div class="flex items-start gap-3">
+      <svg class="w-5 h-5 mt-0.5 flex-shrink-0" style="color: var(--accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <h3 class="font-semibold text-sm uppercase tracking-wider mb-2" style="color: var(--accent);">Data Persistence</h3>
+        <p class="text-sm leading-relaxed" style="color: var(--muted);">Progress syncs via <strong>Supabase</strong> so the whole team sees updates in real time. Falls back to <strong>localStorage</strong> if the connection fails.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+
+<!-- MY TASKS TAB -->
+<main id="view-my" class="max-w-7xl mx-auto px-4 py-6 pb-16 hidden">
+  <div class="card rounded-xl p-5 mb-6">
+    <h2 class="font-bold text-lg mb-4">My Tasks</h2>
+    <p class="text-xs mb-3" style="color: var(--muted);">Select a team member to view their assigned STTR sections and POC responsibilities.</p>
+    <div class="flex flex-wrap gap-2" id="memberSelector">
+      <button class="member-btn px-4 py-2 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" data-member="Roman Owens" onclick="selectMember('Roman Owens')">Roman Owens</button>
+      <button class="member-btn px-4 py-2 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" data-member="Dr. Tamaro Hudson" onclick="selectMember('Dr. Tamaro Hudson')">Dr. Tamaro Hudson</button>
+      <button class="member-btn px-4 py-2 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" data-member="Dr. Caimei Zhang" onclick="selectMember('Dr. Caimei Zhang')">Dr. Caimei Zhang</button>
+      <button class="member-btn px-4 py-2 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" data-member="Dr. Emmanuel Akala" onclick="selectMember('Dr. Emmanuel Akala')">Dr. Emmanuel Akala</button>
+      <button class="member-btn px-4 py-2 rounded-lg text-sm font-semibold border transition-all" style="border-color: var(--border); color: var(--muted);" data-member="Joyce Terry" onclick="selectMember('Joyce Terry')">Joyce Terry</button>
+    </div>
+  </div>
+  <div id="myTasksContent" class="space-y-6"></div>
+</main>
+
+
+<!-- POC TAB -->
+<main id="view-poc" class="max-w-7xl mx-auto px-4 py-6 pb-16 hidden">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card p-5 rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">Duration</p>
+      <p class="text-xl font-bold accent-text">4 Months</p>
+      <p class="text-xs mt-1" style="color: var(--muted);">14 weeks validation</p>
+    </div>
+    <div class="card p-5 rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">In Vitro Donors</p>
+      <p class="text-xl font-bold accent-text">4 Donors</p>
+      <p class="text-xs mt-1" style="color: var(--muted);">TCR functional validation</p>
+    </div>
+    <div class="card p-5 rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">In Vivo Arm</p>
+      <p class="text-xl font-bold accent-text">1 Donor</p>
+      <p class="text-xs mt-1" style="color: var(--muted);">NSG mouse xenograft</p>
+    </div>
+    <div class="card p-5 rounded-xl">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">POC Progress</p>
+      <div class="flex items-center gap-3 mt-2">
+        <div class="progress-bar flex-1 h-3"><div id="pocOverallBar" class="progress-fill h-3" style="width: 0%"></div></div>
+        <span id="pocOverallText" class="text-sm font-bold accent-text">0%</span>
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 rounded-xl mb-6 flex items-center gap-4">
+    <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style="background: rgba(168,85,247,0.15); color: #C084FC;">CZ</div>
+    <div>
+      <p class="text-sm font-semibold">Principal Investigator: Dr. Caimei Zhang</p>
+      <p class="text-xs" style="color: var(--muted);">Experimental Design Lead — POC Research Protocol</p>
+    </div>
+  </div>
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+      <h2 class="text-lg font-bold">Month 1 — Preparation Stage for In Vitro Validation</h2>
+      <span class="badge badge-muted">Weeks 1–4</span>
+    </div>
+    <div id="month1Container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </div>
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+      <h2 class="text-lg font-bold">Months 2–4 — TCR Functional Validation (In Vitro + In Vivo)</h2>
+      <span class="badge badge-muted">Weeks 1–14</span>
+    </div>
+    <div id="validationContainer" class="space-y-3"></div>
+  </div>
+  <div class="card p-5 rounded-xl mb-6">
+    <h3 class="font-bold text-sm uppercase tracking-wider mb-4" style="color: var(--muted);">Donor Progress Tracker</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="donorTracker"></div>
+  </div>
+  <div class="card p-5 rounded-xl mb-6">
+    <h3 class="font-bold text-sm uppercase tracking-wider mb-4" style="color: var(--muted);">In Vivo Milestone Tracker</h3>
+    <div class="space-y-3" id="inVivoMilestones"></div>
+  </div>
+</main>
+
+
+<!-- Requirements Modal -->
+<div id="reqModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(11,20,38,0.85); backdrop-filter: blur(4px);">
+  <div class="card rounded-xl p-6 max-w-lg w-full mx-4 relative" style="background: var(--card); border-color: var(--border);">
+    <button onclick="closeRequirementsModal()" class="absolute top-4 right-4 text-lg font-bold" style="color: var(--muted);">&times;</button>
+    <h3 id="reqModalTitle" class="text-lg font-bold mb-3 pr-6" style="color: var(--accent);"></h3>
+    <p id="reqModalBody" class="text-sm leading-relaxed" style="color: var(--text);"></p>
+  </div>
+</div>
+
+
+<script>
+/*
+=== SUPABASE SETUP ===
+1. Go to supabase.com → create project
+2. Project Settings → API → copy Project URL and anon key below
+3. Run this SQL in the Supabase SQL Editor:
+
+
+create table if not exists tracker_state (
+  id uuid primary key default gen_random_uuid(),
+  state_key text not null unique,
+  state_value jsonb not null default '{}',
+  updated_by text,
+  updated_at timestamptz default now()
+);
+insert into tracker_state (state_key, state_value) values
+  ('sttr_checks', '{}'), ('poc_checks', '{}'), ('section_progress', '{}')
+on conflict (state_key) do nothing;
+alter table tracker_state enable row level security;
+create policy "Public read" on tracker_state for select using (true);
+create policy "Public write" on tracker_state for insert with check (true);
+create policy "Public update" on tracker_state for update using (true);
+*/
+
+
+const SUPABASE_URL = 'https://qlujoyptbcnebgupgebh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_K60USEU3JLTm4sh4IxlTyQ_9TN_tuyJ';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+
+const STTR_DEADLINE = new Date('2026-09-05T23:59:59');
+
+
+const phases = [
+  { id: 'p1', name: 'Phase 1: Strategy — Align Science + NIH Fit', range: 'Now – May 31, 2026', deadline: '2026-05-31',
+    tasks: ['Finalize STTR collaboration structure with Howard University','Define roles between OncoVanta and research institution','Confirm Principal Investigator structure','Clarify target indication, innovation, and translational strategy','Contact NIH Program Officers for guidance and fit assessment'] },
+  { id: 'p2', name: 'Phase 2: Core Writing — Specific Aims + Research Strategy', range: 'June 1 – June 30, 2026', deadline: '2026-06-30',
+    tasks: ['Complete Specific Aims page (Lead: Dr. Tamaro Hudson; Scientific Support: Dr. Caimei Zhang; Strategic Support: Roman Owens)','Draft Research Strategy (Lead: Dr. Tamaro Hudson; Scientific Support: Dr. Caimei Zhang, Dr. Emmanuel Akala; Strategic Support: Roman Owens)','Define experimental design and milestones','Establish go/no-go criteria for POC phase','Begin Commercialization Plan (Lead: Roman Owens)','Prepare initial budget framework (Lead: Roman Owens)'] },
+  { id: 'p3', name: 'Phase 3: Full Proposal — Complete All Sections', range: 'July 1 – August 15, 2026', deadline: '2026-08-15',
+    tasks: ['Finalize Commercialization Plan (Lead: Roman Owens; Support: Joyce Terry)','Complete budget justifications (Lead: Roman Owens; Support: Joyce Terry)','Complete subaward documents (Lead: Roman Owens; Support: Joyce Terry)','Secure letters of support (Lead: Roman Owens; Support: Joyce Terry)','Finalize biosketches (Lead: Joyce Terry; Support: Roman Owens)','Finalize Facilities & Resources section (Lead: Dr. Tamaro Hudson; Support: Joyce Terry)','Complete IP Agreement / Allocation of Rights (Lead: Roman Owens; Support: Dr. Tamaro Hudson)','Complete Data Management & Sharing Plan (Lead: Roman Owens; Support: Dr. Tamaro Hudson)','Internal scientific review and internal compliance review'] },
+  { id: 'p4', name: 'Phase 4: Finalize & Submit', range: 'August 15 – September 5, 2026', deadline: '2026-09-05',
+    tasks: ['Final proofreading and formatting checks','Upload documents into ASSIST / Grants.gov','Validate all compliance requirements','Resolve any submission system errors','Submit several days before deadline (target: September 1)'] }
+];
+
+
+const sections = [
+  { num: 1, name: 'Cover Information', lead: 'Joyce Terry', support: 'Roman Owens' },
+  { num: 2, name: 'Project Summary / Abstract', lead: 'Dr. Tamaro Hudson', support: 'Roman Owens' },
+  { num: 3, name: 'Project Narrative', lead: 'Dr. Tamaro Hudson', support: 'Roman Owens' },
+  { num: 4, name: 'Specific Aims', lead: 'Dr. Tamaro Hudson', support: 'Dr. Caimei Zhang (Scientific); Roman Owens (Strategic)' },
+  { num: '5a', name: 'Research Strategy — Significance', lead: 'Roman Owens', support: 'Dr. Tamaro Hudson' },
+  { num: '5b', name: 'Research Strategy — Innovation', lead: 'Dr. Emmanuel Akala', support: 'Dr. Caimei Zhang; Dr. Tamaro Hudson (Oversight)' },
+  { num: '5c', name: 'Research Strategy — Approach', lead: 'Dr. Caimei Zhang', support: 'Dr. Tamaro Hudson (Scientific Oversight)' },
+  { num: 6, name: 'Commercialization Plan', lead: 'Roman Owens', support: 'Joyce Terry' },
+  { num: 7, name: 'Facilities and Resources', lead: 'Dr. Tamaro Hudson', support: 'Joyce Terry' },
+  { num: 8, name: 'Biographical Sketches', lead: 'Joyce Terry', support: 'Roman Owens' },
+  { num: 9, name: 'Budget and Budget Justification', lead: 'Roman Owens', support: 'Joyce Terry' },
+  { num: 10, name: 'Consortium / Subaward Documents', lead: 'Roman Owens', support: 'Joyce Terry' },
+  { num: 11, name: 'Intellectual Property Agreement', lead: 'Roman Owens', support: 'Dr. Tamaro Hudson' },
+  { num: 12, name: 'Letters of Support', lead: 'Roman Owens', support: 'Joyce Terry' },
+  { num: 13, name: 'Human Subjects / Clinical Trial Information', lead: 'Dr. Caimei Zhang', support: 'Dr. Tamaro Hudson (Oversight)' },
+  { num: 14, name: 'Vertebrate Animals Section', lead: 'Dr. Tamaro Hudson', support: '—' },
+  { num: 15, name: 'Data Management & Sharing Plan', lead: 'Roman Owens', support: 'Dr. Tamaro Hudson' },
+  { num: 16, name: 'Authentication of Key Biological and/or Chemical Resources', lead: 'Dr. Tamaro Hudson', support: '—' },
+  { num: 17, name: 'Resource Sharing Plans', lead: 'Dr. Tamaro Hudson', support: 'Roman Owens' },
+  { num: 18, name: 'Facilities Compliance & Certifications', lead: 'Roman Owens', support: 'Joyce Terry' },
+  { num: 19, name: 'Appendices', lead: 'Dr. Tamaro Hudson', support: '—' }
+];
+
+
+const sectionRequirements = {
+  'Cover Information': 'Standard NIH cover page fields; institutional sign-off required; verify all PI/PD and organizational details.',
+  'Project Summary / Abstract': 'Max 30 lines; must be self-contained; include objectives, methods, and relevance to public health.',
+  'Project Narrative': 'Max 3 sentences; describe public health relevance in plain language.',
+  'Specific Aims': 'Max 1 page; state hypothesis, 2 specific aims, and expected outcomes clearly.',
+  'Research Strategy — Significance': 'Identify the scientific gap, clinical need, and commercial potential of the approach.',
+  'Research Strategy — Innovation': 'Articulate novelty of TCR-T cell delivery system and nanomedicine advantages over existing approaches.',
+  'Research Strategy — Approach': 'Include preliminary data, experimental design, statistical methods, and go/no-go criteria.',
+  'Commercialization Plan': 'Market opportunity, competitive landscape, IP strategy, path to Phase II and commercialization.',
+  'Facilities and Resources': 'Describe lab space, Howard University partnership, shared equipment, and institutional support.',
+  'Biographical Sketches': 'NIH SciENcv format; max 5 pages per person; include all key personnel.',
+  'Budget and Budget Justification': 'Itemized personnel, supplies, CRO/service fees, indirect costs; justify all line items.',
+  'Consortium / Subaward Documents': 'Include signed consortium agreement, F&A rate agreement with Howard University.',
+  'Intellectual Property Agreement': 'Allocation of rights between SBC and research institution; confirm IP ownership framework.',
+  'Letters of Support': 'Letters from academic collaborators, industry partners, and key advisors confirming commitment.',
+  'Human Subjects / Clinical Trial Information': 'Address protection of human subjects; describe healthy donor T-cell sourcing and IRB status.',
+  'Vertebrate Animals Section': 'Cover all five required points — description, justification, minimization of pain, method of euthanasia, and veterinary care.',
+  'Data Management & Sharing Plan': 'Describe data types, storage, access controls, and NIH sharing compliance.',
+  'Authentication of Key Biological and/or Chemical Resources': 'Identify all key cell lines, reagents, and vectors; describe authentication protocols.',
+  'Resource Sharing Plans': 'Address sharing of model organisms, genomic data, and other unique research resources.',
+  'Facilities Compliance & Certifications': 'Confirm biosafety level, IRB, IACUC certifications and institutional assurances.',
+  'Appendices': 'Only permissible appendices per FOA; include publications, blank consent forms, or other allowed materials.'
+};
+
+
+const month1Weeks = [
+  { week: 1, tasks: ['Get DNA sequencing result for TCR plasmid (24–48h)', 'Start cloning: digestion, ligation, mini-prep', 'All three cell lines in expansion'] },
+  { week: 2, tasks: ['Complete cloning and get DNA sequencing result', 'If mycoplasma test negative → start cryopreserving tumor cell lines'] },
+  { week: 3, tasks: ['Conduct plasmid max-prep and DNA sequencing (~3 days)', 'Cryopreserve tumor cell lines', 'Isolate T cells from 4 healthy donors and cryopreserve (2–3 days)'] },
+  { week: 4, tasks: ['Complete lentivirus packaging and virus titration in T cells (~3 days)', 'Complete tumor cell line banking (5–10×10⁶ cells/tube, 50 tubes/cell line)', 'Confirm TP53R175H expression (qPCR or IF staining) and HLA-A*02 (flow cytometry)', 'Mycoplasma test before cryopreservation'] }
+];
+
+
+const validationWeeks = [
+  { week: 1, label: 'Run flow for virus titration; set up Donor 1 T cell activation (Thursday) and transduction (Friday)', donors: [1] },
+  { week: 2, label: 'Donor 1 T cell expansion — count cells every other day; run flow for transduction efficiency', donors: [1] },
+  { week: 3, label: 'Functional assays for Donor 1 — co-culture with tumor cells: activation markers, cytokine release, cytotoxicity; data analysis', donors: [1] },
+  { week: 4, label: 'Order NSG mice for in vivo study; set up Donor 2 T cell activation (Thursday) and transduction (Friday)', donors: [2], milestone: 'order_mice' },
+  { week: 5, label: 'Donor 2 expansion (same protocol as Donor 1); set up Donor 3 activation (Thursday) and transduction (Friday)', donors: [2, 3] },
+  { week: 6, label: 'Functional assays and data analysis for Donor 2; Donor 3 expansion', donors: [2, 3] },
+  { week: 7, label: 'Functional assays and data analysis for Donor 3', donors: [3] },
+  { week: 8, label: 'Generate tumor xenograft mouse model (subcutaneous tumor injection); set up Donor 4 T cell activation (Thursday) for in vivo prep', donors: [4], milestone: 'xenograft' },
+  { week: 9, label: 'Donor 4 expansion; monitor tumor growth in grafted mice', donors: [4] },
+  { week: 10, label: 'Freeze Donor 4 engineered T cells for in vivo; functional assays and data analysis for Donor 4', donors: [4] },
+  { week: 11, label: 'Infuse engineered T cells into tumor-bearing mice', donors: [4], milestone: 'infuse' },
+  { week: 12, label: 'Monitor tumor growth every 3 days', donors: [4], milestone: 'monitor' },
+  { week: 13, label: 'Monitor tumor growth every 3 days', donors: [4], milestone: 'monitor' },
+  { week: 14, label: 'Continue monitoring tumor growth every 3 days', donors: [4], milestone: 'monitor' }
+];
+
+
+const inVivoMilestoneDefs = [
+  { id: 'order_mice', label: 'NSG mice ordered' },
+  { id: 'xenograft', label: 'Tumor xenograft injected (subcutaneous)' },
+  { id: 'infuse', label: 'Engineered T cells infused into tumor-bearing mice' },
+  { id: 'monitor', label: 'Tumor monitoring ongoing (every 3 days)' },
+  { id: 'complete', label: 'Study complete' }
+];
+
+
+let sttrChecks = {}, pocChecks = {}, sectionProgress = {};
+let sttrChart = null, realtimeChannel = null;
+
+
+function loadStateLocal() {
+  try { sttrChecks = JSON.parse(localStorage.getItem('ov2_sttr_checks') || '{}'); } catch(e) { sttrChecks = {}; }
+  try { pocChecks = JSON.parse(localStorage.getItem('ov2_poc_checks') || '{}'); } catch(e) { pocChecks = {}; }
+  try { sectionProgress = JSON.parse(localStorage.getItem('ov2_section_progress') || '{}'); } catch(e) { sectionProgress = {}; }
+}
+function saveStateLocal() {
+  localStorage.setItem('ov2_sttr_checks', JSON.stringify(sttrChecks));
+  localStorage.setItem('ov2_poc_checks', JSON.stringify(pocChecks));
+  localStorage.setItem('ov2_section_progress', JSON.stringify(sectionProgress));
+}
+
+
+function showLoading(show) { document.getElementById('loadingOverlay').classList.toggle('hidden', !show); }
+
+
+async function loadStateFromSupabase() {
+  showLoading(true);
+  try {
+    const { data, error } = await db.from('tracker_state').select('state_key, state_value');
+    if (error) throw error;
+    if (data) {
+      data.forEach(row => {
+        if (row.state_key === 'sttr_checks') sttrChecks = row.state_value || {};
+        if (row.state_key === 'poc_checks') pocChecks = row.state_value || {};
+        if (row.state_key === 'section_progress') sectionProgress = row.state_value || {};
+      });
+      saveStateLocal();
+    }
+  } catch(e) {
+    console.warn('Supabase load failed, using localStorage:', e);
+    loadStateLocal();
+  } finally {
+    showLoading(false);
+  }
+}
+
+
+async function upsertState(key, value) {
+  try {
+    const { error } = await db.from('tracker_state').upsert({ state_key: key, state_value: value, updated_at: new Date().toISOString() }, { onConflict: 'state_key' });
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Supabase upsert failed, saving locally:', e);
+    saveStateLocal();
+  }
+}
+
+
+function saveSTTR() { upsertState('sttr_checks', sttrChecks); updateSTTRStats(); }
+function savePOC() { upsertState('poc_checks', pocChecks); updatePOCStats(); }
+function saveSectionProgress() { upsertState('section_progress', sectionProgress); }
+
+
+function initRealtime() {
+  if (realtimeChannel) db.removeChannel(realtimeChannel);
+  realtimeChannel = db.channel('tracker_state_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tracker_state' }, payload => {
+      if (payload.new?.state_key) {
+        if (payload.new.state_key === 'sttr_checks') sttrChecks = payload.new.state_value || {};
+        if (payload.new.state_key === 'poc_checks') pocChecks = payload.new.state_value || {};
+        if (payload.new.state_key === 'section_progress') sectionProgress = payload.new.state_value || {};
+        saveStateLocal();
+        renderAll();
+      }
+    }).subscribe();
+}
+
+
+function renderAll() {
+  renderPhases(); renderSectionTable(); updateSTTRStats();
+  renderMonth1(); renderValidation(); renderDonorTracker(); renderInVivoMilestones(); updatePOCStats();
+  const active = document.querySelector('.member-btn.active');
+  if (active) renderMyTasks(active.dataset.member);
+}
+
+
+async function initApp() {
+  updateCountdown();
+  loadStateLocal();
+  renderPhases(); renderSectionTable(); initDonut(); updateSTTRStats();
+  renderMonth1(); renderValidation(); renderDonorTracker(); renderInVivoMilestones(); updatePOCStats();
+  await loadStateFromSupabase();
+  renderAll();
+  initRealtime();
+}
+
+
+function renderPhases() {
+  const container = document.getElementById('phasesContainer');
+  container.innerHTML = '';
+  const now = new Date();
+  phases.forEach((phase, idx) => {
+    const phaseChecks = Object.keys(sttrChecks).filter(k => k.startsWith(phase.id + '_')).length;
+    const total = phase.tasks.length;
+    const pct = Math.round((phaseChecks / total) * 100);
+    const isOverdue = new Date(phase.deadline) < now;
+    const statusClass = phaseChecks === total ? 'badge-success' : isOverdue ? 'badge-danger' : 'badge-warning';
+    const statusText = phaseChecks === total ? 'Complete' : isOverdue ? 'Overdue' : 'In Progress';
+    const div = document.createElement('div');
+    div.className = 'card rounded-xl overflow-hidden stagger-item';
+    div.style.animationDelay = (idx * 0.08) + 's';
+    div.innerHTML = `
+      <div class="phase-header p-5 flex items-center justify-between" onclick="togglePhase('${phase.id}')">
+        <div class="flex items-center gap-3">
+          <span class="badge ${statusClass}">${statusText}</span>
+          <div>
+            <h3 class="font-semibold text-sm md:text-base">${phase.name}</h3>
+            <p class="text-xs mt-0.5" style="color: var(--muted);">${phase.range} · Deadline: ${formatDate(phase.deadline)}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex items-center gap-2">
+            <div class="progress-bar w-24 h-2"><div class="progress-fill h-2" style="width: ${pct}%"></div></div>
+            <span class="text-xs font-semibold" style="color: var(--muted);">${pct}%</span>
+          </div>
+          <svg id="chevron-${phase.id}" class="w-5 h-5 transition-transform" style="color: var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </div>
+      <div id="body-${phase.id}" class="hidden border-t" style="border-color: var(--border);">
+        <div class="p-5 space-y-3">
+          ${phase.tasks.map((t, i) => `
+            <label class="flex items-start gap-3 cursor-pointer group">
+              <input type="checkbox" class="checkbox-ov mt-0.5 flex-shrink-0" ${sttrChecks[phase.id+'_'+i] ? 'checked' : ''} onchange="toggleSTTR('${phase.id}', ${i})">
+              <span class="text-sm leading-relaxed group-hover:opacity-90 transition-opacity">${escapeHtml(t)}</span>
+            </label>`).join('')}
+        </div>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+
+function toggleSectionProgress(idx) {
+  const key = String(idx);
+  sectionProgress[key] = !sectionProgress[key];
+  if (!sectionProgress[key]) delete sectionProgress[key];
+  saveSectionProgress();
+  renderSectionTable();
+}
+
+
+function openRequirementsModal(sectionName) {
+  document.getElementById('reqModalTitle').textContent = sectionName;
+  document.getElementById('reqModalBody').textContent = sectionRequirements[sectionName] || 'No detailed requirements available.';
+  document.getElementById('reqModal').classList.remove('hidden');
+}
+function closeRequirementsModal() { document.getElementById('reqModal').classList.add('hidden'); }
+
+
+function renderSectionTable() {
+  const tbody = document.getElementById('sectionTableBody');
+  tbody.innerHTML = sections.map((s, idx) => {
+    const done = !!sectionProgress[String(idx)];
+    return `
+    <tr class="table-row border-t transition-colors" style="border-color: var(--border);">
+      <td class="px-5 py-3 font-mono text-xs" style="color: var(--muted);">${s.num}</td>
+      <td class="px-5 py-3 font-medium">${escapeHtml(s.name)}</td>
+      <td class="px-5 py-3">
+        <button onclick="openRequirementsModal('${escapeHtml(s.name).replace(/'/g,"\\'")}') " class="text-xs font-semibold px-3 py-1 rounded-full border transition-all hover:opacity-90" style="background: rgba(0,201,177,0.12); color: var(--accent); border-color: rgba(0,201,177,0.35);">Req</button>
+      </td>
+      <td class="px-5 py-3 text-sm" style="color: var(--accent);">${escapeHtml(s.lead)}</td>
+      <td class="px-5 py-3 text-sm" style="color: var(--muted);">${escapeHtml(s.support)}</td>
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          <div class="progress-bar w-20 h-2"><div class="progress-fill h-2" style="width: ${done ? '100%' : '0%'}"></div></div>
+          <span class="text-xs font-semibold" style="color: var(--muted);">${done ? '100%' : '0%'}</span>
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" class="checkbox-ov" ${done ? 'checked' : ''} onchange="toggleSectionProgress(${idx})">
+            <span class="text-xs" style="color: var(--muted);">${done ? 'Done' : 'Mark'}</span>
+          </label>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+
+function togglePhase(id) {
+  const body = document.getElementById('body-' + id);
+  const chevron = document.getElementById('chevron-' + id);
+  body.classList.toggle('hidden');
+  chevron.style.transform = body.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+
+function toggleSTTR(phaseId, taskIdx) {
+  const key = phaseId + '_' + taskIdx;
+  sttrChecks[key] = !sttrChecks[key];
+  if (!sttrChecks[key]) delete sttrChecks[key];
+  saveSTTR();
+  renderPhases();
+}
+
+
+function updateSTTRStats() {
+  const totalTasks = phases.reduce((s, p) => s + p.tasks.length, 0);
+  const completed = Object.keys(sttrChecks).length;
+  const pct = Math.round((completed / totalTasks) * 100);
+  document.getElementById('sttrOverallBar').style.width = pct + '%';
+  document.getElementById('sttrOverallText').textContent = pct + '%';
+  document.getElementById('sttrCompletedCount').textContent = completed;
+  if (sttrChart) { sttrChart.data.datasets[0].data = [completed, totalTasks - completed]; sttrChart.update(); }
+}
+
+
+function initDonut() {
+  const ctx = document.getElementById('sttrDonut').getContext('2d');
+  const totalTasks = phases.reduce((s, p) => s + p.tasks.length, 0);
+  sttrChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: ['Complete', 'Remaining'], datasets: [{ data: [0, totalTasks], backgroundColor: ['#00C9B1', '#2A3B4D'], borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1E2D3D', titleColor: '#E8ECF1', bodyColor: '#E8ECF1', borderColor: '#2A3B4D', borderWidth: 1 } } }
+  });
+}
+
+
+function renderMonth1() {
+  document.getElementById('month1Container').innerHTML = month1Weeks.map((w, idx) => {
+    const checkedCount = w.tasks.filter((_, ti) => pocChecks['m1_w'+w.week+'_'+ti]).length;
+    const pct = Math.round((checkedCount / w.tasks.length) * 100);
+    return `<div class="card week-card rounded-xl p-5 stagger-item" style="animation-delay: ${idx*0.06}s">
+      <div class="flex items-center justify-between mb-3"><h4 class="font-semibold text-sm">Week ${w.week}</h4><span class="text-xs font-semibold" style="color: var(--accent);">${pct}%</span></div>
+      <div class="progress-bar h-1.5 mb-4"><div class="progress-fill h-1.5" style="width: ${pct}%"></div></div>
+      <div class="space-y-2.5">${w.tasks.map((t, ti) => `
+        <label class="flex items-start gap-2.5 cursor-pointer group">
+          <input type="checkbox" class="checkbox-ov mt-0.5 flex-shrink-0" ${pocChecks['m1_w'+w.week+'_'+ti] ? 'checked' : ''} onchange="togglePOC('m1_w${w.week}', ${ti})">
+          <span class="text-sm leading-relaxed" style="color: var(--text);">${escapeHtml(t)}</span>
+        </label>`).join('')}</div></div>`;
+  }).join('');
+}
+
+
+function renderValidation() {
+  document.getElementById('validationContainer').innerHTML = validationWeeks.map((w, idx) => {
+    const key = 'val_w' + w.week;
+    const checked = !!pocChecks[key + '_0'];
+    const donorBadges = w.donors.map(d => `<span class="text-xs px-2 py-0.5 rounded border" style="border-color: var(--border); color: var(--accent);">Donor ${d}</span>`).join(' ');
+    return `<div class="card week-card rounded-xl p-4 flex items-start gap-3 stagger-item" style="animation-delay: ${idx*0.05}s">
+      <input type="checkbox" class="checkbox-ov mt-1 flex-shrink-0" ${checked ? 'checked' : ''} onchange="togglePOC('${key}', 0)">
+      <div class="flex-1">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span class="text-xs font-bold px-2 py-0.5 rounded" style="background: var(--accent-soft); color: var(--accent);">Week ${w.week}</span>
+          ${donorBadges}
+          ${w.milestone ? `<span class="text-xs px-2 py-0.5 rounded border" style="border-color: var(--warning); color: var(--warning);">In Vivo</span>` : ''}
+        </div>
+        <p class="text-sm leading-relaxed" style="color: var(--text);">${escapeHtml(w.label)}</p>
+      </div></div>`;
+  }).join('');
+}
+
+
+function renderDonorTracker() {
+  const donorStatus = { 1: 'pending', 2: 'pending', 3: 'pending', 4: 'pending' };
+  validationWeeks.forEach(w => {
+    if (pocChecks['val_w'+w.week+'_0']) w.donors.forEach(d => { donorStatus[d] = 'inprogress'; });
+  });
+  if (pocChecks['val_w3_0']) donorStatus[1] = 'complete';
+  if (pocChecks['val_w7_0']) { donorStatus[2] = 'complete'; donorStatus[3] = 'complete'; }
+  if (pocChecks['val_w10_0']) donorStatus[4] = 'complete';
+  document.getElementById('donorTracker').innerHTML = [1,2,3,4].map(d => {
+    const s = donorStatus[d];
+    const label = s === 'complete' ? 'Complete' : s === 'inprogress' ? 'In Progress' : 'Pending';
+    return `<div class="donor-pill ${s} rounded-lg p-3 border text-center"><p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--muted);">Donor ${d}</p><p class="text-sm font-bold">${label}</p></div>`;
+  }).join('');
+}
+
+
+function renderInVivoMilestones() {
+  const milestoneState = {};
+  inVivoMilestoneDefs.forEach(m => {
+    if (m.id === 'complete') milestoneState[m.id] = ['val_w12','val_w13','val_w14'].every(k => pocChecks[k+'_0']) ? 'complete' : 'pending';
+    else if (m.id === 'monitor') milestoneState[m.id] = ['val_w12','val_w13','val_w14'].some(k => pocChecks[k+'_0']) ? 'inprogress' : 'pending';
+    else { const rw = validationWeeks.find(w => w.milestone === m.id); milestoneState[m.id] = rw && pocChecks['val_w'+rw.week+'_0'] ? 'complete' : 'pending'; }
+  });
+  document.getElementById('inVivoMilestones').innerHTML = inVivoMilestoneDefs.map((m, idx) => {
+    const state = milestoneState[m.id];
+    const icon = state === 'complete' ? '✓' : state === 'inprogress' ? '◐' : '○';
+    const color = state === 'complete' ? 'var(--success)' : state === 'inprogress' ? 'var(--warning)' : 'var(--muted)';
+    const bg = state === 'complete' ? 'rgba(46,204,113,0.15)' : state === 'inprogress' ? 'rgba(243,156,18,0.15)' : 'rgba(139,157,179,0.15)';
+    return `<div class="milestone-item ${state} flex items-center gap-3 stagger-item" style="animation-delay: ${idx*0.06}s">
+      <span class="text-lg font-bold" style="color: ${color};">${icon}</span>
+      <span class="text-sm font-medium">${escapeHtml(m.label)}</span>
+      <span class="ml-auto text-xs font-semibold px-2 py-0.5 rounded" style="background: ${bg}; color: ${color};">${state==='complete'?'Complete':state==='inprogress'?'In Progress':'Pending'}</span>
+    </div>`;
+  }).join('');
+}
+
+
+function togglePOC(key, taskIdx) {
+  const fullKey = key + '_' + taskIdx;
+  pocChecks[fullKey] = !pocChecks[fullKey];
+  if (!pocChecks[fullKey]) delete pocChecks[fullKey];
+  savePOC();
+  renderMonth1(); renderValidation(); renderDonorTracker(); renderInVivoMilestones();
+}
+
+
+function updatePOCStats() {
+  const totalM1 = month1Weeks.reduce((s, w) => s + w.tasks.length, 0);
+  const total = totalM1 + validationWeeks.length;
+  const completedM1 = month1Weeks.reduce((s, w) => s + w.tasks.filter((_, ti) => pocChecks['m1_w'+w.week+'_'+ti]).length, 0);
+  const completedVal = validationWeeks.filter(w => pocChecks['val_w'+w.week+'_0']).length;
+  const pct = Math.round(((completedM1 + completedVal) / total) * 100);
+  document.getElementById('pocOverallBar').style.width = pct + '%';
+  document.getElementById('pocOverallText').textContent = pct + '%';
+}
+
+
+function memberMatches(member, text) {
+  const names = {
+    'Roman Owens': ['Roman Owens', 'Roman'],
+    'Dr. Tamaro Hudson': ['Dr. Tamaro Hudson', 'Tamaro Hudson'],
+    'Dr. Caimei Zhang': ['Dr. Caimei Zhang', 'Caimei Zhang'],
+    'Dr. Emmanuel Akala': ['Dr. Emmanuel Akala', 'Emmanuel Akala'],
+    'Joyce Terry': ['Joyce Terry']
+  };
+  return (names[member] || [member]).some(n => text.includes(n));
+}
+
+
+function selectMember(member) {
+  document.querySelectorAll('.member-btn').forEach(btn => {
+    const isActive = btn.dataset.member === member;
+    btn.classList.toggle('active', isActive);
+    btn.style.color = isActive ? 'var(--accent)' : 'var(--muted)';
+    btn.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+    btn.style.background = isActive ? 'var(--accent-soft)' : '';
+  });
+  renderMyTasks(member);
+}
+
+
+function renderMyTasks(member) {
+  const container = document.getElementById('myTasksContent');
+  const sttrSections = sections.filter(s => memberMatches(member, s.lead) || memberMatches(member, s.support));
+  const pocTasks = [];
+  phases.forEach(p => p.tasks.forEach((t, ti) => { if (memberMatches(member, t)) pocTasks.push({ phase: p, task: t, key: p.id+'_'+ti }); }));
+  const sttrHtml = sttrSections.length
+    ? `<div class="card rounded-xl p-5"><h3 class="font-bold text-sm uppercase tracking-wider mb-3" style="color: var(--accent);">STTR Responsibilities</h3><div class="space-y-2">${sttrSections.map(s => {
+        const globalIdx = sections.indexOf(s);
+        const done = !!sectionProgress[String(globalIdx)];
+        return `<label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="checkbox-ov mt-0.5 flex-shrink-0" ${done ? 'checked' : ''} onchange="toggleSectionProgress(${globalIdx}); renderMyTasks('${escapeHtml(member).replace(/'/g,"\\'")}');"><div><p class="text-sm font-medium">${escapeHtml(s.name)} <span class="text-xs" style="color: var(--muted);">(${escapeHtml(s.lead)})</span></p><p class="text-xs" style="color: var(--muted);">Support: ${escapeHtml(s.support)}</p></div></label>`;
+      }).join('')}</div></div>`
+    : `<div class="card rounded-xl p-5"><p class="text-sm" style="color: var(--muted);">No STTR sections assigned to ${escapeHtml(member)}.</p></div>`;
+  const pocHtml = pocTasks.length
+    ? `<div class="card rounded-xl p-5"><h3 class="font-bold text-sm uppercase tracking-wider mb-3" style="color: var(--accent);">POC Phase Tasks</h3><div class="space-y-2">${pocTasks.map(pt => {
+        const checked = !!sttrChecks[pt.key];
+        const tIdx = parseInt(pt.key.split('_')[1]);
+        return `<label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="checkbox-ov mt-0.5 flex-shrink-0" ${checked ? 'checked' : ''} onchange="toggleSTTR('${pt.phase.id}', ${tIdx}); renderMyTasks('${escapeHtml(member).replace(/'/g,"\\'")}');"><div><p class="text-sm font-medium">${escapeHtml(pt.phase.name)}</p><p class="text-sm" style="color: var(--muted);">${escapeHtml(pt.task)}</p></div></label>`;
+      }).join('')}</div></div>`
+    : `<div class="card rounded-xl p-5"><p class="text-sm" style="color: var(--muted);">No POC phase tasks assigned to ${escapeHtml(member)}.</p></div>`;
+  container.innerHTML = sttrHtml + pocHtml;
+}
+
+
+function switchTab(tab) {
+  ['sttr','poc','my'].forEach(t => {
+    document.getElementById('view-'+t).classList.toggle('hidden', t !== tab);
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'poc') { renderMonth1(); renderValidation(); renderDonorTracker(); renderInVivoMilestones(); updatePOCStats(); }
+  if (tab === 'my') { const a = document.querySelector('.member-btn.active'); if (a) renderMyTasks(a.dataset.member); }
+}
+
+
+function updateCountdown() {
+  const diff = STTR_DEADLINE - new Date();
+  document.getElementById('daysRemaining').textContent = Math.max(0, Math.ceil(diff / (1000*60*60*24)));
+  document.getElementById('currentDateDisplay').textContent = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+
+function formatDate(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+
+initApp();
+</script>
+</body>
+</html>
